@@ -1,0 +1,61 @@
+pkgname=mingw-w64-nghttp2
+pkgver=4020_6372883_v1.3.4+8
+epoch=1
+pkgrel=2
+pkgdesc="An experimental implementation of Hypertext Transfer Protocol version 2.0"
+arch=('any')
+url="http://tatsuhiro-t.github.io/nghttp2/"
+license=('MIT')
+depends=('mingw-w64-crt' 'mingw-w64-openssl')
+makedepends=('mingw-w64-gcc' 'git')
+options=(!strip !buildflags staticlibs)
+source=("${pkgname}::git://github.com/tatsuhiro-t/nghttp2")
+md5sums=('SKIP')
+
+_architectures="i686-w64-mingw32 x86_64-w64-mingw32"
+
+pkgver() {
+  cd ${pkgname}
+
+  last_tag="$(git describe --tags --abbrev=0 HEAD || echo '')"
+  if [[ -n $last_tag  ]]; then
+	  echo "$(git rev-list --count HEAD)_$(git rev-parse --short HEAD)_${last_tag//-/.}+$(git rev-list --skip=`git rev-list --count ${last_tag}` --count HEAD)"
+  else
+	  echo "$(git rev-list --count HEAD)_$(git rev-parse --short HEAD)"
+  fi
+
+}
+
+prepare() {
+  cd ${pkgname}
+
+  autoreconf -fisv
+}
+
+build() {
+  cd ${pkgname}
+  for _arch in ${_architectures}; do
+    mkdir -p build-${_arch} && pushd build-${_arch}
+    # TODO: Check if static lib is fixed, it errors at link time, check test_ver.c
+    #${_arch}-configure --disable-static
+    ${_arch}-configure --disable-shared
+    make
+    popd
+  done
+}
+
+package() {
+  for _arch in ${_architectures}; do
+    cd "${srcdir}/${pkgname}/build-${_arch}"
+
+    make DESTDIR="$pkgdir" install
+
+    rm -r "$pkgdir"/usr/${_arch}/share
+
+    ${_arch}-strip -g "$pkgdir"/usr/${_arch}/lib/*.a
+  done
+
+  make DESTDIR="$pkgdir" install
+}
+
+# vim: ft=sh syn=sh et
